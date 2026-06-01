@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор конфигураций WARP WireGuard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <style>
+        :root {
+            --pico-font-size: 16px;
+            --pico-border-radius: 16px;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #2e1065 70%, #431407 100%);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: #f8fafc;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        header h1 {
+            background: linear-gradient(135deg, #fff 30%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            color: #94a3b8;
+        }
+
+        /* Элементы форм в стиле жидкого стекла */
+        input[type="text"], input[type="number"], textarea {
+            background: rgba(15, 23, 42, 0.4) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+            backdrop-filter: blur(8px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        input:focus, textarea:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
+            background: rgba(15, 23, 42, 0.6) !important;
+        }
+
+        .config-output {
+            font-family: 'Fira Code', monospace;
+            white-space: pre;
+            resize: vertical;
+            min-height: 220px;
+        }
+
+        /* Кнопки Liquid Glass */
+        button, #generateBtn {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(147, 51, 234, 0.8)) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            color: #fff !important;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        button:hover:not([disabled]), #generateBtn:hover:not([disabled]) {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 1), rgba(147, 51, 234, 1)) !important;
+            box-shadow: 0 8px 25px rgba(147, 51, 234, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .button-group button {
+            flex: 1;
+            min-width: 140px;
+            background: rgba(255, 255, 255, 0.07) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        
+        .button-group button:hover {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-color: rgba(255, 255, 255, 0.25) !important;
+        }
+
+        details {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0.75rem 1rem;
+            border-radius: var(--pico-border-radius);
+            margin-bottom: 1.5rem;
+        }
+
+        details summary {
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+
+        .error {
+            background-color: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            backdrop-filter: blur(10px);
+            color: #fca5a5;
+            padding: 1rem;
+            border-radius: var(--pico-border-radius);
+            margin-bottom: 1.5rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #generateBtn {
+            width: 100%;
+            margin-bottom: 1.5rem;
+            padding: 0.8rem;
+            font-size: 1.1rem;
+        }
+
+        /* Карточка информации */
+        .account-info {
+            background: rgba(15, 23, 42, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--pico-border-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .account-info h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            color: #93c5fd;
+        }
+
+        .account-info dl {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.5rem 1.5rem;
+            margin: 0;
+        }
+
+        .account-info dt {
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .account-info dd {
+            margin: 0;
+            color: #e2e8f0;
+        }
+
+        /* Секция QR-кода */
+        .qr-section {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        #qrCode {
+            display: inline-block;
+            padding: 1.2rem;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+        
+        #qrCode:hover {
+            transform: scale(1.02);
+        }
+
+        #qrCode canvas {
+            display: block;
+        }
+
+        .qr-label {
+            margin-top: 0.75rem;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: #60a5fa;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>Генератор WARP</h1>
+            <p>Создайте конфигурацию WireGuard для Cloudflare WARP. Вся обработка происходит прямо в вашем браузере.</p>
+        </header>
+
+        <button id="generateBtn">Сгенерировать конфигурацию WARP</button>
+
+        <details>
+            <summary>Дополнительные настройки</summary>
+            <form id="optionsForm">
+                <label>
+                    DNS-серверы
+                    <input type="text" name="dns" value="1.1.1.1, 1.0.0.1, 2606:4700:4700::1111, 2606:4700:4700::1001">
+                </label>
+                <label>
+                    MTU
+                    <input type="number" name="mtu" value="1280">
+                </label>
+                <label>
+                    Разрешенные IP (Allowed IPs)
+                    <input type="text" name="allowedIps" value="0.0.0.0/0, ::/0">
+                </label>
+                <label>
+                    Persistent Keepalive (0 = отключено)
+                    <input type="number" name="keepalive" value="0" min="0">
+                </label>
+                <label>
+                    Тип устройства
+                    <input type="text" name="deviceType" value="Linux">
+                </label>
+                <label>
+                    Локаль (Язык)
+                    <input type="text" name="locale" value="ru_RU">
+                </label>
+            </form>
+        </details>
+
+        <div id="error" class="error hidden"></div>
+
+        <div id="outputSection" class="hidden">
+            <div id="accountInfo" class="account-info">
+                <h3>Информация об аккаунте</h3>
+                <dl>
+                    <dt>ID Аккаунта</dt>
+                    <dd id="accountId">-</dd>
+                    <dt>ID Устройства</dt>
+                    <dd id="deviceId">-</dd>
+                    <dt>Тип аккаунта</dt>
+                    <dd id="accountType">-</dd>
+                    <dt>Лицензия</dt>
+                    <dd id="license">-</dd>
+                    <dt>Создан</dt>
+                    <dd id="created">-</dd>
+                    <dt>Истекает</dt>
+                    <dd id="expires">-</dd>
+                </dl>
+            </div>
+
+            <div class="qr-section">
+                <div id="qrCode"></div>
+                <p class="qr-label">Сканируйте через мобильное приложение WireGuard</p>
+            </div>
+
+            <label>
+                Конфигурация WireGuard
+                <textarea id="configOutput" class="config-output" readonly></textarea>
+            </label>
+            <div class="button-group">
+                <button id="copyBtn">Копировать в буфер</button>
+                <button id="downloadBtn">Скачать warp.conf</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>Также доступна <a href="https://github.com/lanrat/wireguard-warp-generator/tree/main/scripts" target="_blank">консольная версия (CLI)</a>.</p>
+            <p><a href="https://github.com/lanrat/wireguard-warp-generator" target="_blank">Исходный код на GitHub</a></p>
+        </footer>
+    </main>
+
+    <script src="wireguard.js"></script>
+    <script>
+        const CORS_PROXY = 'https://corsproxy.io/?';
+        const WARP_API = 'https://api.cloudflareclient.com/v0a737/reg';
+
+        const generateBtn = document.getElementById('generateBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const configOutput = document.getElementById('configOutput');
+        const outputSection = document.getElementById('outputSection');
+        const errorDiv = document.getElementById('error');
+        const optionsForm = document.getElementById('optionsForm');
+        const qrCodeDiv = document.getElementById('qrCode');
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorDiv.classList.add('hidden');
+        }
+
+        function getOptions() {
+            const formData = new FormData(optionsForm);
+            return {
+                dns: formData.get('dns'),
+                mtu: formData.get('mtu'),
+                allowedIps: formData.get('allowedIps'),
+                keepalive: formData.get('keepalive'),
+                deviceType: formData.get('deviceType'),
+                locale: formData.get('locale')
+            };
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return '-';
+            return new Date(isoString).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function displayAccountInfo(warpResponse) {
+            document.getElementById('accountId').textContent = warpResponse.account?.id || '-';
+            document.getElementById('deviceId').textContent = warpResponse.id || '-';
+            document.getElementById('accountType').textContent =
+                (warpResponse.account?.warp_plus ? 'WARP+ ' : '') +
+                (warpResponse.account?.account_type || 'free (бесплатный)');
+            document.getElementById('license').textContent = warpResponse.account?.license || '-';
+            document.getElementById('created').textContent = formatDate(warpResponse.created);
+            document.getElementById('expires').textContent = formatDate(warpResponse.account?.ttl);
+        }
+
+        async function generateQRCode(config) {
+            qrCodeDiv.innerHTML = '';
+            try {
+                await QRCode.toCanvas(qrCodeDiv.appendChild(document.createElement('canvas')), config, {
+                    width: 256,
+                    margin: 0,
+                    errorCorrectionLevel: 'M'
+                });
+            } catch (err) {
+                console.error('Ошибка генерации QR-кода:', err);
+                qrCodeDiv.innerHTML = '<p>Не удалось создать QR-код</p>';
+            }
+        }
+
+        async function registerWithWarp(publicKey, options) {
+            const payload = {
+                key: publicKey,
+                install_id: '',
+                warp_enabled: true,
+                tos: new Date().toISOString(),
+                type: options.deviceType,
+                locale: options.locale
+            };
+
+            const response = await fetch(CORS_PROXY + encodeURIComponent(WARP_API), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.success === false) {
+                const errorMsg = data.errors?.[0]?.message || data.error?.message || 'Неизвестная ошибка API';
+                throw new Error(`Ошибка API: ${errorMsg}`);
+            }
+
+            return data;
+        }
+
+        function generateConfig(privateKey, warpResponse, options) {
+            const peer = warpResponse.config.peers[0];
+            const iface = warpResponse.config.interface;
+
+            let config = `[Interface]
+PrivateKey = ${privateKey}
+Address = ${iface.addresses.v4}/32, ${iface.addresses.v6}/128
+DNS = ${options.dns}
+MTU = ${options.mtu}
+
+[Peer]
+PublicKey = ${peer.public_key}
+AllowedIPs = ${options.allowedIps}
+Endpoint = ${peer.endpoint.host}`;
+
+            if (options.keepalive && options.keepalive !== '0') {
+                config += `\nPersistentKeepalive = ${options.keepalive}`;
+            }
+
+            return config;
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            hideError();
+            generateBtn.disabled = true;
+            generateBtn.setAttribute('aria-busy', 'true');
+            generateBtn.textContent = 'Генерирую...';
+
+            try {
+                // Генерация ключей WireGuard
+                const keypair = window.wireguard.generateKeypair();
+                const options = getOptions();
+
+                // Регистрация в Cloudflare WARP
+                const warpResponse = await registerWithWarp(keypair.publicKey, options);
+
+                // Генерация конфига
+                const config = generateConfig(keypair.privateKey, warpResponse, options);
+
+                // Вывод инфо об аккаунте
+                displayAccountInfo(warpResponse);
+
+                // Генерация QR
+                await generateQRCode(config);
+
+                // Вывод конфига
+                configOutput.value = config;
+                outputSection.classList.remove('hidden');
+            } catch (err) {
+                showError(err.message);
+                outputSection.classList.add('hidden');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.removeAttribute('aria-busy');
+                generateBtn.textContent = 'Сгенерировать конфигурацию WARP';
+            }
+        });
+
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(configOutput.value);
+                copyBtn.textContent = 'Скопировано!';
+                setTimeout(() => {
+                    copyBtn.textContent = 'Копировать в буфер';
+                }, 2000);
+            } catch (err) {
+                showError('Не удалось скопировать в буфер обмена');
+            }
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const blob = new Blob([configOutput.value], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'warp.conf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
